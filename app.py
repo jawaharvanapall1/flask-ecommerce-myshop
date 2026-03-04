@@ -836,7 +836,6 @@ def verify_payment():
                 "message": msg
             }), 400
 
-        # ✅ SUCCESS
         return jsonify({
             "status": "success",
             "payment_id": data["razorpay_payment_id"]
