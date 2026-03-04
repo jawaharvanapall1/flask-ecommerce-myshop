@@ -1,0 +1,45 @@
+{% extends "user/user_base.html" %}
+
+{% block content %}
+
+{% if query %}
+<h2>Search Results</h2>
+{% else %}
+<h2>All Products</h2>
+{% endif %}
+
+<div class="product-grid">
+    {% for p in products %}
+        <div class="product-card">
+
+            <img src="{{ url_for('static', filename=p.IMAGE_URL) }}">
+
+            <h3>{{ p.NAME }}</h3>
+
+            <p class="price">₹{{ p.PRICE }}</p>
+
+            {% if p.STOCK > 0 %}
+                <span class="in-stock">In Stock</span>
+            {% else %}
+                <span class="out-stock">Out of Stock</span>
+            {% endif %}
+
+            <form method="POST" action="{{ url_for('add_to_cart') }}">
+                <input type="hidden" name="product_id" value="{{ p.PRODUCTID }}">
+                <button class="cart-btn" {% if p.STOCK <= 0 %}disabled{% endif %}>
+                    🛒 Add to Cart
+                </button>
+            </form>
+
+            <form method="POST" action="{{ url_for('buy_now') }}">
+                <input type="hidden" name="product_id" value="{{ p.PRODUCTID }}">
+                <button class="buy-btn" {% if p.STOCK <= 0 %}disabled{% endif %}>
+                    ⚡ Buy Now
+                </button>
+            </form>
+
+        </div>
+    {% endfor %}
+</div>
+
+{% endblock %}

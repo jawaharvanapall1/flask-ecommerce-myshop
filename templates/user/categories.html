@@ -1,0 +1,132 @@
+{% extends "user/user_base.html" %}
+{% block title %}Categories{% endblock %}
+
+{% block content %}
+
+{% if not selected_category %}
+<!-- ================= HEADER ================= -->
+<div class="page-header">
+    <h1>Categories</h1>
+    <button class="add-btn">+ Add Category</button>
+</div>
+
+<!-- ================= CONTROLS ================= -->
+<div class="controls-header">
+    <div class="left-controls">
+        <input type="text" id="categorySearch" placeholder="Search categories...">
+    </div>
+
+    <div class="right-controls">
+        <select>
+            <option>Sort by</option>
+            <option>A-Z</option>
+            <option>Z-A</option>
+        </select>
+
+        <select>
+            <option>All Categories</option>
+            <option>Fashion</option>
+            <option>Electronics</option>
+            <option>Home</option>
+        </select>
+    </div>
+</div>
+{% endif %}
+
+<!-- ================= CATEGORY GRID ================= -->
+{% if selected_category is not defined or not selected_category %}
+<div class="categories-grid">
+    {% for cat in categories %}
+    <div class="category-card"
+     onclick="window.location.href='{{ url_for('user_categories', category=cat.name) }}'">
+
+        <div class="category-img">
+            <img src="{{ url_for('static', filename=cat.image) }}"
+                 alt="{{ cat.name }}">
+        </div>
+
+        <div class="category-content">
+            <h3>{{ cat.name }}</h3>
+            <p>{{ cat.desc | default('') }}</p>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ================= PRODUCTS GRID ================= -->
+{% if selected_category is defined and selected_category %}
+
+<h2 class="section-title">{{ selected_category }} Products</h2>
+
+
+{% if items is defined and items %}
+<div class="product-grid">
+
+    {% for item in items %}
+    <div class="product-card">
+
+        <!-- ❤️ Wishlist -->
+        <button class="wishlist-btn"
+                onclick="toggleWishlist(this, {{item.PRODUCTID }})">
+            ❤️
+        </button>
+
+        <!-- Product Image -->
+        <img src="{{ url_for(
+            'static',
+            filename=item.IMAGE_URL if item.IMAGE_URL else 'images/no-image.png'
+        ) }}"
+        alt="{{ item.NAME }}">
+
+        <h3>{{ item.NAME }}</h3>
+        <p class="price">₹{{ item.PRICE }}</p>
+
+        {% if item.STOCK > 0 %}
+            <span class="in-stock">In Stock</span>
+        {% else %}
+            <span class="out-stock">Out of Stock</span>
+        {% endif %}
+
+        <!-- 🛒 Add to Cart -->
+        <form method="POST" action="{{ url_for('add_to_cart') }}">
+            <input type="hidden" name="product_id" value="{{ item.PRODUCTID }}">
+            <button class="cart-btn" {% if item.STOCK <= 0 %}disabled{% endif %}>
+                🛒 Add to Cart
+            </button>
+        </form>
+        
+        <!-- ⚡ Buy Now -->
+        <form method="POST" action="{{ url_for('buy_now') }}">
+            <input type="hidden" name="product_id" value="{{ item.PRODUCTID }}">
+            <button class="buy-btn" {% if item.STOCK <= 0 %}disabled{% endif %}>
+                ⚡ Buy Now
+            </button>
+        </form>
+
+    </div>
+    {% endfor %}
+
+</div>
+{% else %}
+<p>No products found.</p>
+{% endif %}
+
+{% endif %}
+<script>
+const searchInput = document.getElementById("categorySearch");
+
+if (searchInput) {
+    searchInput.addEventListener("keyup", function () {
+        let searchValue = this.value.toLowerCase();
+        let cards = document.querySelectorAll(".category-card");
+
+        cards.forEach(card => {
+            let categoryName = card.querySelector("h3").innerText.toLowerCase();
+            card.style.display = categoryName.includes(searchValue) ? "" : "none";
+        });
+    });
+}
+</script>
+
+{% endblock %}

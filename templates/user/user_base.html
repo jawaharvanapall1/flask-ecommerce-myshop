@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    <title>{% block title %}User{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/categories.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/user_profile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cart.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/checkout.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+    {% block page_css %}{% endblock %}
+
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+
+<!-- ================= PREMIUM NAVBAR ================= -->
+<div class="top-navbar">
+
+    <!-- LEFT -->
+    <div class="nav-left">
+        <a href="/" class="logo">My<span>Shop</span></a>
+        <a href="/user"><i class="fa-solid fa-house"></i> Home</a>
+        <a href="/user/categories"><i class="fa-solid fa-list"></i> Categories</a>
+        <a href="/user/orders"><i class="fa-solid fa-receipt"></i> Orders</a>
+    </div>
+
+    <!-- CENTER -->
+    <div class="nav-center">
+        <form method="POST" action="{{ url_for('user_products') }}">
+            <input type="text" name="query" placeholder="Search for products...">
+        </form>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="nav-right">
+        {% if user_logged_in %}
+            <a href="{{ url_for('user_profile') }}">
+                <i class="fa-solid fa-user"></i> {{ username }}
+            </a>
+            <a href="{{ url_for('view_cart') }}">
+                <i class="fa-solid fa-cart-shopping"></i> Cart
+            </a>
+            <a href="{{ url_for('logout') }}">
+                <i class="fa fa-sign-out-alt"></i>
+            </a>
+        {% else %}
+            <a href="{{ url_for('login') }}">
+                <i class="fa-solid fa-right-to-bracket"></i> Login
+            </a>
+            <a href="{{ url_for('register') }}">
+                <i class="fa-solid fa-user-plus"></i> Register
+            </a>
+        {% endif %}
+    </div>
+
+</div>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

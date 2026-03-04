@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Panel{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/addproducts.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/edit_products.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <h2>Admin Panel</h2>
+
+        <a href="{{ url_for('adminproducts') }}"><i class="fa-solid fa-boxes-stacked"></i> Products</a>
+        <a href="{{ url_for('adminaddproduct') }}"><i class="fa-solid fa-plus"></i> Add Product</a>
+        <a href="{{ url_for('adminorders') }}"><i class="fa-solid fa-receipt"></i> Orders</a>
+        <a href="{{ url_for('adminusers') }}"><i class="fa-solid fa-users"></i> Users</a>
+        <a href="{{ url_for('adminprofile') }}"><i class="fa-solid fa-user"></i> Profile</a>
+        <a href="/logout" class="logout"><i class="fa fa-sign-out-alt"></i> Logout</a>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+        {% block admin_content %}{% endblock %}
+    </main>
+
+</div>
+{% endblock %}

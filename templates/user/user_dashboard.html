@@ -1,0 +1,30 @@
+{% extends "user/user_base.html" %}
+
+{% block title %}User Dashboard{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user_dashboard.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="hero">
+    <div class="hero-content">
+        <h1>The Best Products</h1>
+        <h3>FROM OUR STORE</h3>
+        <p>Discover premium electronics & trending products at the best prices.</p>
+
+        <div class="hero-buttons">
+            <a href="{{ url_for('user_products') }}" class="btn-primary">
+                Shop Now
+            </a>
+            <a href="#" class="btn-outline">
+                Watch Videos
+            </a>
+        </div>
+
+        <p class="secure-text">Secured by Razorpay</p>
+    </div>
+</div>
+
+{% endblock %}

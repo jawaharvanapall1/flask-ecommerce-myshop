@@ -1,0 +1,57 @@
+{% extends "admin/admin_base.html" %}
+
+{% block title %}Admin Products{% endblock %}
+
+{% block admin_content %}
+
+<div class="admin-header">
+    <h2>Products</h2>
+    <a href="{{ url_for('adminaddproduct') }}" class="btn-primary">➕ Add Product</a>
+</div>
+
+{% if products %}
+<div class="card-grid">
+
+{% for p in products %}
+<div class="card {% if p.STOCK|int == 0 %}card-disabled{% endif %}">
+
+    <div class="product-img">
+        {% if p.IMAGE_URL %}
+            <img src="{{ url_for('static', filename=p.IMAGE_URL) }}" alt="{{ p.NAME }}">
+        {% else %}
+            <div class="no-image">No Image</div>
+        {% endif %}
+    </div>
+
+    <h3>{{ p.NAME }}</h3>
+    <p class="price">₹ {{ p.PRICE }}</p>
+    <p class="stock">Stock: {{ p.STOCK|int }}</p>
+
+    <div class="card-actions">
+
+        <a href="{{ url_for('editproduct', productid=p.PRODUCTID) }}" class="btn-edit">
+            Edit
+        </a>
+
+        {% if p.STOCK|int == 0 %}
+            <form method="POST" action="{{ url_for('activate_product', productid=p.PRODUCTID) }}">
+                <button type="submit" class="btn-activate">Activate</button>
+            </form>
+        {% else %}
+            <form method="POST"
+                  action="{{ url_for('deactivate_product', productid=p.PRODUCTID) }}"
+                  onsubmit="return confirm('Are you sure you want to deactivate this product?')">
+                <button type="submit" class="btn-delete">Deactivate</button>
+            </form>
+        {% endif %}
+
+    </div>
+</div>
+{% endfor %}
+
+</div>
+{% else %}
+<p class="empty-msg">No products found.</p>
+{% endif %}
+
+{% endblock %}

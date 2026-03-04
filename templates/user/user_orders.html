@@ -1,0 +1,58 @@
+{% extends "user/user_base.html" %}
+
+{% block title %}My Orders{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/user_orders.css') }}">
+{% endblock %}
+
+{% block content %}
+
+
+
+<div class="orders-container">
+
+    {% if orders and orders|length > 0 %}
+
+        {% for order in orders %}
+        <div class="order-card">
+
+            <!-- Product Image (placeholder for now) -->
+            <img
+            src="{{ url_for('static', filename=order.IMAGE_URL) if order.IMAGE_URL else url_for('static', filename='images/default_product.png') }}"
+            alt="{{ order.PRODUCT_NAME }}"
+            >
+
+            <!-- Order Details -->
+            <div class="order-details">
+                <h3>{{ order.PRODUCT_NAME }}</h3>
+
+                <p class="order-id">
+                    Order ID: {{ order.ORDER_ID }}
+                </p>
+
+                <p class="price">
+                    ₹{{ order.TOTAL_PRICE }}
+                    <span class="qty">(Qty: {{ order.QUANTITY }})</span>
+                </p>
+
+                <p class="payment">
+                    Payment: {{ order.PAYMENT_STATUS }}
+                </p>
+            </div>
+
+            <!-- Order Status -->
+            <div class="order-status {{ order.ORDER_STATUS }}">
+                {{ order.ORDER_STATUS }}
+            </div>
+
+        </div>
+        {% endfor %}
+
+    {% else %}
+        <p style="color:#777;">You have no orders yet.</p>
+    {% endif %}
+
+</div>
+
+{% endblock %}

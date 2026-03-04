@@ -1,0 +1,85 @@
+.page-title {
+    margin-bottom: 20px;
+}
+
+/* Orders list */
+.orders-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+/* Order card */
+.order-card {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 15px;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+/* Product image */
+.order-img {
+    width: 90px;
+    height: 90px;
+    flex-shrink: 0;
+}
+
+.order-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
+/* Details */
+.order-details {
+    flex: 1;
+    margin-left: 20px;
+}
+
+.order-details h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.order-id {
+    font-size: 13px;
+    color: #777;
+    margin: 6px 0;
+}
+
+.price {
+    font-weight: bold;
+    font-size: 15px;
+}
+
+/* Status */
+.order-status {
+    font-weight: bold;
+    font-size: 14px;
+    padding: 6px 12px;
+    border-radius: 4px;
+}
+
+.order-status.Delivered {
+    color: #2ecc71;
+}
+
+.order-status.Pending {
+    color: #f39c12;
+}
+
+.order-status.Shipped {
+    color: #3498db;
+}
+
+.order-status.Cancelled {
+    color: #e74c3c;
+}
+.order-card img {
+    width: 140px;
+    height: auto;
+    object-fit: contain;
+}

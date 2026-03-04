@@ -1,0 +1,99 @@
+{% extends "user/user_base.html" %}
+
+{% block content %}
+
+<div class="cart-page">
+
+    <!-- ================= LEFT SIDE ================= -->
+    <div class="cart-left">
+
+        <h2>Shopping Cart</h2>
+        <hr>
+
+        {% if cart_items %}
+            {% for item in cart_items %}
+            <div class="cart-item">
+
+                <!-- IMAGE -->
+                <div class="cart-img">
+                    {% if item.IMAGE_URL %}
+                        <img src="{{ url_for('static', filename=item.IMAGE_URL) }}">
+                    {% else %}
+                        <img src="{{ url_for('static', filename='images/no-image.png') }}">
+                    {% endif %}
+                </div>
+
+                <!-- DETAILS -->
+                <div class="cart-details">
+                    <h4>{{ item.NAME }}</h4>
+                    <p class="stock">In stock</p>
+
+                    <div class="cart-actions">
+
+                        <!-- QUANTITY -->
+                        <div class="qty-form">
+                            <input type="number"
+                                min="1"
+                                value="{{ item.QUANTITY }}"
+                                class="qty-input"
+                                onchange="updateQuantity({{ item.PRODUCTID }}, this.value)">
+                        </div>
+
+                        <!-- DELETE -->
+                        <form method="POST"
+                              action="{{ url_for('remove_from_cart') }}"
+                              class="delete-form">
+                            <input type="hidden" name="product_id" value="{{ item.PRODUCTID }}">
+                            <button type="submit" class="delete-link">
+                                Delete
+                            </button>
+                        </form>
+
+                    </div>
+                </div>
+
+                <!-- PRICE -->
+                <div class="cart-price">
+                    ₹{{ item.TOTAL_PRICE }}
+                </div>
+
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>Your cart is empty 🛒</p>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT SIDE (ONLY WHEN CART HAS ITEMS) -->
+    {% if cart_items %}
+    <div class="cart-right">
+        <h3>Subtotal</h3>
+        <p class="subtotal">₹{{ grand_total }}</p>
+
+        <a href="{{ url_for('checkout') }}" class="checkout-btn">
+            Proceed to Checkout
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+function updateQuantity(productId, quantity) {
+    fetch("/update-cart-quantity", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: `product_id=${productId}&quantity=${quantity}`
+    })
+    .then(() => {
+        // reload only cart totals visually
+        location.reload();
+    });
+}
+</script>
+
+
+
+{% endblock %}
