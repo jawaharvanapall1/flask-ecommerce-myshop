@@ -62,4 +62,4 @@ Tools: VS Code, MySQL Workbench
 
 Jawahar Vanapalli
 
-Python Flask Developer
+Python Full Stack Developer
