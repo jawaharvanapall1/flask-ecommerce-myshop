@@ -4,8 +4,8 @@ import mysql.connector as SQLC
 def databaseConfig():
     db_config = SQLC.connect(
     host='localhost',
-    user='jawahar',
-    password='1234',
+    user='root',
+    password='root',
     database='ecommerce1'
     )
     return db_config

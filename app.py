@@ -990,5 +990,5 @@ def user_profile():
 # main
 if __name__ == "__main__":
     createTables()
-    app.run(debug=True, port=5006)
+    app.run(host="0.0.0.0", port=5006, debug=True)
      
