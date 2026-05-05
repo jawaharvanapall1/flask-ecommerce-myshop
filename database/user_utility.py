@@ -1,26 +1,25 @@
-from flask import session
 from database.connection import databaseConfig
 
 
 # ================= CATEGORY =================
 def show_category(category, min_price=None, max_price=None):
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     sql = """
         SELECT *
         FROM products
-        WHERE LOWER(category) = LOWER(%s)
+        WHERE LOWER(category) = LOWER(?)
         AND active = 1
     """
     values = [category]
 
     if min_price:
-        sql += " AND price >= %s"
+        sql += " AND price >= ?"
         values.append(min_price)
 
     if max_price:
-        sql += " AND price <= %s"
+        sql += " AND price <= ?"
         values.append(max_price)
 
     cursor.execute(sql, tuple(values))
@@ -34,7 +33,7 @@ def show_category(category, min_price=None, max_price=None):
 # ================= SEARCH =================
 def searchProductsForUser(query: str = ""):
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     sql = """
         SELECT PRODUCTID, NAME, PRICE, STOCK, IMAGE_URL
@@ -44,11 +43,14 @@ def searchProductsForUser(query: str = ""):
     values = []
 
     if query:
-        sql += " AND NAME LIKE %s"
+        sql += " AND LOWER(NAME) LIKE LOWER(?)"
         values.append(f"%{query}%")
 
     cursor.execute(sql, values)
     products = cursor.fetchall()
+
+    print("SEARCH:", query)       # DEBUG
+    print("RESULT:", products)   # DEBUG
 
     cursor.close()
     db.close()
@@ -58,95 +60,85 @@ def searchProductsForUser(query: str = ""):
 # ================= ORDERS =================
 def myOrders(userid):
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     query = """
-        SELECT
-        ORDER_ID,
-        PRODUCT_NAME,
-        PRODUCT_PRICE,
-        QUANTITY,
-        TOTAL_PRICE,
-        IMAGE_URL,
-        ORDER_STATUS,
-        PAYMENT_STATUS,
-        CREATED_AT
-        FROM ORDERS
-        WHERE USER_ID = %s
-        ORDER BY CREATED_AT DESC
+        SELECT 
+            o.ORDER_ID,
+            o.PRODUCT_NAME,
+            o.PRODUCT_PRICE,
+            o.QUANTITY,
+            o.TOTAL_PRICE,
+            p.IMAGE_URL,   -- ✅ get from PRODUCTS
+            o.ORDER_STATUS,
+            o.PAYMENT_STATUS,
+            o.CREATED_AT
+        FROM ORDERS o
+        JOIN PRODUCTS p ON o.PRODUCT_ID = p.PRODUCTID
+        WHERE o.USER_ID = ?
+        ORDER BY o.CREATED_AT DESC
     """
 
     cursor.execute(query, (userid,))
     orders = cursor.fetchall()
 
-    print("ORDERS FROM DB:", orders)
-
     cursor.close()
     db.close()
     return orders
 
-# ================= PLACE ORDER =================
 
-def placeOrder(userid, fullname, phone, address, city, pincode, total_amount, cart_items,payment_method,payment_status):
+# ================= PLACE ORDER =================
+def placeOrder(userid, fullname, phone, address, city, pincode,
+               total_amount, cart_items, payment_method, payment_status):
+
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
     try:
-        # 1️⃣ generate ORDER_ID
-        cursor.execute("SELECT IFNULL(MAX(ORDER_ID), 0) + 1 AS oid FROM ORDERS")
-        order_id = cursor.fetchone()["oid"]
+        cursor.execute("SELECT COALESCE(MAX(ORDER_ID), 0) + 1 FROM ORDERS")
+        order_id = cursor.fetchone()[0]
 
         for item in cart_items:
-            # 2️⃣ check stock first
+
             cursor.execute(
-                "SELECT STOCK FROM PRODUCTS WHERE PRODUCTID = %s",
+                "SELECT STOCK FROM PRODUCTS WHERE PRODUCTID = ?",
                 (item["PRODUCTID"],)
             )
             product = cursor.fetchone()
 
-            if not product or product["STOCK"] < item["QUANTITY"]:
+            if not product or product[0] < item["QUANTITY"]:
                 db.rollback()
-                return False, f"Insufficient stock for {item['NAME']}"
+                return False, "Insufficient stock"
 
-            # 3️⃣ insert order row
-            cursor.execute(
-                """
+            cursor.execute("""
                 INSERT INTO ORDERS (
                     ORDER_ID, USER_ID, PRODUCT_ID, PRODUCT_NAME,
                     PRODUCT_PRICE, QUANTITY, IMAGE_URL,
                     PAYMENT_METHOD, PAYMENT_STATUS
                 )
-                VALUES (
-                    %s, %s, %s, %s, %s, %s,
-                    (SELECT IMAGE_URL FROM PRODUCTS WHERE PRODUCTID = %s),
-                    %s, %s
+                VALUES (?, ?, ?, ?, ?, ?, 
+                    (SELECT IMAGE_URL FROM PRODUCTS WHERE PRODUCTID = ?),
+                    ?, ?
                 )
-                """,
-                (
-                    order_id,
-                    userid,
-                    item["PRODUCTID"],
-                    item["NAME"],
-                    item["PRICE"],
-                    item["QUANTITY"],
-                    item["PRODUCTID"],
-                    payment_method,
-                    payment_status
-                )
-            )
+            """, (
+                order_id,
+                userid,
+                item["PRODUCTID"],
+                item["NAME"],
+                item["PRICE"],
+                item["QUANTITY"],
+                item["PRODUCTID"],
+                payment_method,
+                payment_status
+            ))
 
-            # 4️⃣ reduce stock (safe)
-            cursor.execute(
-                """
+            cursor.execute("""
                 UPDATE PRODUCTS
-                SET STOCK = STOCK - %s
-                WHERE PRODUCTID = %s
-                """,
-                (item["QUANTITY"], item["PRODUCTID"])
-            )
+                SET STOCK = STOCK - ?
+                WHERE PRODUCTID = ?
+            """, (item["QUANTITY"], item["PRODUCTID"]))
 
-        # 5️⃣ clear cart ONLY after everything succeeds
-        cursor.execute("DELETE FROM CART WHERE USERID = %s", (userid,))
+        cursor.execute("DELETE FROM CART WHERE USERID = ?", (userid,))
         db.commit()
 
         return True, "Order placed successfully"
@@ -164,28 +156,26 @@ def placeOrder(userid, fullname, phone, address, city, pincode, total_amount, ca
 # ================= PROFILE =================
 def getUserProfile(user_id):
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
-    query = """
-        SELECT USERID, NAME, EMAIL, PHONE_NUMBER, GENDER, PROFILE_IMAGE
+    cursor.execute("""
+        SELECT USERID, NAME, EMAIL, PHONE_NUMBER, PROFILE_IMAGE
         FROM USERS
-        WHERE USERID = %s AND STATUS = 1
-    """
+        WHERE USERID = ? AND STATUS = 1
+    """, (user_id,))
 
-    cursor.execute(query, (user_id,))
     user = cursor.fetchone()
-
     cursor.close()
     db.close()
     return user
 
 
-# ================= INTERNAL CART HELPER =================
+# ================= CART =================
 def getUserCartItems(user_id):
-    db_config = databaseConfig()
-    cursor = db_config.cursor(dictionary=True)
+    db = databaseConfig()
+    cursor = db.cursor()
 
-    query = """
+    cursor.execute("""
         SELECT 
             C.CARTID,
             C.PRODUCTID,
@@ -196,126 +186,108 @@ def getUserCartItems(user_id):
             (C.QUANTITY * C.PRICE) AS TOTAL_PRICE
         FROM CART C
         JOIN PRODUCTS P ON C.PRODUCTID = P.PRODUCTID
-        WHERE C.USERID = %s;
-    """
+        WHERE C.USERID = ?
+    """, (user_id,))
 
-    cursor.execute(query, (user_id,))
     results = cursor.fetchall()
-
     cursor.close()
-    db_config.close()
-
+    db.close()
     return results
 
 
-def getProductById(productid:int):
-    db_config = databaseConfig()
-    cursor = db_config.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM PRODUCTS WHERE PRODUCTID=%s;", (productid,))
+def getProductById(productid):
+    db = databaseConfig()
+    cursor = db.cursor()
+    cursor.execute("SELECT * FROM PRODUCTS WHERE PRODUCTID=?", (productid,))
     product = cursor.fetchone()
     cursor.close()
-    db_config.close()
+    db.close()
     return product
 
+
 def getCartItem(user_id, product_id):
-    db_config = databaseConfig()
-    cursor = db_config.cursor(dictionary=True)
+    db = databaseConfig()
+    cursor = db.cursor()
 
-    query = """
+    cursor.execute("""
         SELECT * FROM CART
-        WHERE USERID = %s AND PRODUCTID = %s;
-    """
+        WHERE USERID = ? AND PRODUCTID = ?
+    """, (user_id, product_id))
 
-    cursor.execute(query, (user_id, product_id))
     result = cursor.fetchone()
-
     cursor.close()
-    db_config.close()
-
+    db.close()
     return result
 
+
 def insertCartItem(user_id, product_id, price):
-    db_config = databaseConfig()
-    cursor = db_config.cursor()
+    db = databaseConfig()
+    cursor = db.cursor()
 
-    query = """
+    cursor.execute("""
         INSERT INTO CART (USERID, PRODUCTID, QUANTITY, PRICE)
-        VALUES (%s, %s, 1, %s);
-    """
+        VALUES (?, ?, 1, ?)
+    """, (user_id, product_id, price))
 
-    cursor.execute(query, (user_id, product_id, price))
-    db_config.commit()
-
+    db.commit()
     cursor.close()
-    db_config.close()
+    db.close()
 
 
-# increase cart quantity
 def increaseCartQuantity(user_id, product_id):
-    db_config = databaseConfig()
-    cursor = db_config.cursor()
+    db = databaseConfig()
+    cursor = db.cursor()
 
-    query = """
+    cursor.execute("""
         UPDATE CART
-        SET QUANTITY = QUANTITY + 1,
-            UPDATED_AT = CURRENT_TIMESTAMP
-        WHERE USERID = %s AND PRODUCTID = %s;
-    """
+        SET QUANTITY = QUANTITY + 1
+        WHERE USERID = ? AND PRODUCTID = ?
+    """, (user_id, product_id))
 
-    cursor.execute(query, (user_id, product_id))
-    db_config.commit()
-
+    db.commit()
     cursor.close()
-    db_config.close()
+    db.close()
 
 
+def removeFromCart(user_id, product_id):
+    db = databaseConfig()
+    cursor = db.cursor()
 
-# ================= REMOVE FROM CART =================
-def removeFromCart(user_id:int, product_id:int):
-    db_config = databaseConfig()
-    cursor = db_config.cursor()
-
-    query = """
+    cursor.execute("""
         DELETE FROM CART
-        WHERE USERID = %s AND PRODUCTID = %s;
-    """
+        WHERE USERID = ? AND PRODUCTID = ?
+    """, (user_id, product_id))
 
-    cursor.execute(query, (user_id, product_id))
-    db_config.commit()
-
+    db.commit()
     cursor.close()
-    db_config.close()
+    db.close()
 
-def updateCartQuantity(quantity:int, user_id:int, product_id:int):
 
-    db_config = databaseConfig()
-    cursor = db_config.cursor()
+def updateCartQuantity(quantity, user_id, product_id):
+    db = databaseConfig()
+    cursor = db.cursor()
 
-    query = """
+    cursor.execute("""
         UPDATE CART
-        SET QUANTITY = %s,
-            UPDATED_AT = CURRENT_TIMESTAMP
-        WHERE USERID = %s AND PRODUCTID = %s;
-    """
+        SET QUANTITY = ?
+        WHERE USERID = ? AND PRODUCTID = ?
+    """, (quantity, user_id, product_id))
 
-    cursor.execute(query, (quantity, user_id, product_id))
-    db_config.commit()
+    db.commit()
     cursor.close()
-    db_config.close()
+    db.close()
 
-
-# ================= POPULAR PRODUCTS (HOME PAGE) =================
 
 def getPopularProducts(limit=6):
     db = databaseConfig()
-    cursor = db.cursor(dictionary=True)
+    cursor = db.cursor()
 
-    query = """
-    SELECT PRODUCTID, NAME, PRICE, IMAGE_URL, STOCK
-    FROM PRODUCTS
-    WHERE ACTIVE = 1
-    ORDER BY PRODUCTID DESC
-    LIMIT %s
-    """
-    cursor.execute(query, (limit,))
+    cursor.execute("""
+        SELECT PRODUCTID, NAME, PRICE, IMAGE_URL, STOCK
+        FROM PRODUCTS
+        WHERE ACTIVE = 1
+        ORDER BY PRODUCTID DESC
+        LIMIT ?
+    """, (limit,))
+
     return cursor.fetchall()

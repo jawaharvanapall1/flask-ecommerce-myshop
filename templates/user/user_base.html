@@ -31,8 +31,8 @@
 
     <!-- CENTER -->
     <div class="nav-center">
-        <form method="POST" action="{{ url_for('user_products') }}">
-            <input type="text" name="query" placeholder="Search for products...">
+        <form method="GET" action="{{ url_for('user_products') }}">
+            <input type="text" name="query" placeholder="Search for products..." value="{{ query|default('')}}">
         </form>
     </div>
 

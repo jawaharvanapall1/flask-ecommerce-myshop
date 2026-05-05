@@ -39,21 +39,15 @@
   <div class="checkout-card">
     <h2>Shipping Address</h2>
 
-    <!-- ❌ NO action, NO submit -->
+    <!-- ✅ FORM -->
     <form id="checkout-form">
-      <!-- ✅ Payment Method Selection -->
-      <div class="payment-option">
-          <label>
-              <input type="radio" name="payment_method" value="online" checked>
-              💳 Pay Online
-          </label>
-      </div>
 
+      <!-- Payment Method (only online now) -->
       <div class="payment-option">
-          <label>
-              <input type="radio" name="payment_method" value="cod">
-              🚚 Cash On Delivery
-          </label>
+        <label>
+          <input type="radio" name="payment_method" value="online" checked>
+          💳 Pay Online
+        </label>
       </div>
 
       <div class="row">
@@ -97,18 +91,18 @@
 
 <!-- Razorpay Script -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
 <script>
 document.getElementById("rzp-button").onclick = async function () {
 
     const button = this;
     const form = document.getElementById("checkout-form");
 
-    // ✅ Prevent double click
     button.disabled = true;
 
     try {
 
-        // ✅ Validate form first
+        // ✅ Validate form
         if (!form.checkValidity()) {
             form.reportValidity();
             button.disabled = false;
@@ -118,37 +112,9 @@ document.getElementById("rzp-button").onclick = async function () {
         const formData = new FormData(form);
         const addressData = Object.fromEntries(formData.entries());
 
-        const paymentMethod = formData.get("payment_method");
         const amount = {{ total_amount }};
 
-        // ================================
-        // 🚚 COD FLOW
-        // ================================
-        if (paymentMethod === "cod") {
-
-            const codResponse = await fetch("/place-cod-order", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(addressData)
-            });
-
-            const result = await codResponse.json();
-
-            if (result.status === "success") {
-                alert("🎉 Order placed successfully (Cash on Delivery)!");
-                window.location.href = "/user";
-            } else {
-                alert("❌ COD Order failed");
-                button.disabled = false;
-            }
-
-            return;
-        }
-
-        // ================================
-        // 💳 ONLINE PAYMENT FLOW
-        // ================================
-
+        // 🔹 Create Razorpay order
         const response = await fetch("/create-razorpay-order", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -158,7 +124,7 @@ document.getElementById("rzp-button").onclick = async function () {
         const data = await response.json();
 
         if (!data.order_id) {
-            alert("❌ Failed to create payment order");
+            alert("❌ Failed to create payment");
             button.disabled = false;
             return;
         }
@@ -173,39 +139,30 @@ document.getElementById("rzp-button").onclick = async function () {
 
             handler: async function (response) {
 
-                try {
+                const verifyRes = await fetch("/verify-payment", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        razorpay_payment_id: response.razorpay_payment_id,
+                        razorpay_order_id: response.razorpay_order_id,
+                        razorpay_signature: response.razorpay_signature,
+                        address: addressData   // ✅ SEND ADDRESS
+                    })
+                });
 
-                    const verifyRes = await fetch("/verify-payment", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_signature: response.razorpay_signature,
-                            address: addressData
-                        })
-                    });
+                const result = await verifyRes.json();
 
-                    const result = await verifyRes.json();
-
-                    if (result.status === "success") {
-                        alert("🎉 Payment Successful! Order placed.");
-                        window.location.href = "/user";
-                    } else {
-                        alert("❌ Payment verification failed");
-                        button.disabled = false;
-                    }
-
-                } catch (err) {
-                    console.error("Verification Error:", err);
-                    alert("❌ Payment verification error");
+                if (result.status === "success") {
+                    alert("🎉 Payment Successful! Order placed.");
+                    window.location.href = "/user/orders";
+                } else {
+                    alert("❌ Payment verification failed");
                     button.disabled = false;
                 }
             },
 
             modal: {
                 ondismiss: function () {
-                    // 🔁 Re-enable button if user closes Razorpay popup
                     button.disabled = false;
                 }
             },
@@ -220,7 +177,7 @@ document.getElementById("rzp-button").onclick = async function () {
 
     } catch (error) {
         console.error("Checkout Error:", error);
-        alert("❌ Something went wrong. Please try again.");
+        alert("❌ Something went wrong");
         button.disabled = false;
     }
 };

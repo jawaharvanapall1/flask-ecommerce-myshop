@@ -79,7 +79,7 @@
                         {{ user.ROLE }}
                     </span>
                 </td>
-                <td>{{ user.CREATED_AT.strftime('%Y-%m-%d') }}</td>
+                <td>{{ user.CREATED_AT[:10] }}</td>
 
                 <td>
                     <a href="{{ url_for('view_user', userid=user.USERID) }}" class="btn-sm btn-view">

@@ -222,7 +222,8 @@ def register():
             email=email,
             phone_number=phone,
             password=hashed_password,
-            profile_image=image_path
+            profile_image=image_path,
+            role='user'
         )
 
         flash("Registration successful. Please login.")
@@ -596,7 +597,7 @@ def getDataFromToken():
 @token_required(role='user')
 def user():
     user = getUserByToken()
-    name = user.get('NAME','Dear User')
+    name = user['NAME'] if user else 'Dear User'
     popular_products = getPopularProducts()
     return render_template(
         'user/user_dashboard.html',
@@ -604,25 +605,21 @@ def user():
         user_logged_in=True,
         username=name
     )
+
 # user products route  
-@app.route('/user/products', methods=['GET', 'POST'])
+@app.route('/user/products')
 @token_required(role='user')
 def user_products():
 
     user = getUserByToken()
-    name = user.get('NAME', 'User')
+    name = user['NAME'] if user else 'Dear User'
 
-    query = ""
-    products = []
+    query = request.args.get('query', '').strip()
 
-    token = request.cookies.get('token')
-    if not token:
-        return redirect(url_for('login'))
-    if request.method == 'POST':
-        query = request.form.get('query')
+    if query:
         products = searchProductsForUser(query)
     else:
-        products = searchProductsForUser("") 
+        products = searchProductsForUser("")
 
     return render_template(
         'user/user_products.html',
@@ -630,7 +627,6 @@ def user_products():
         query=query,
         username=name,
         user_logged_in=True
-
     )
 
 #home route
@@ -662,7 +658,7 @@ def user_categories():
     ]
 
     user = getUserByToken()
-    name = user.get('NAME', 'User')
+    name = user['NAME'] if user else 'Dear User'
 
     category = request.args.get("category")
     print("CATEGORY RECEIVED:", category)  
@@ -719,11 +715,11 @@ def add_to_cart():
 def checkout():
 
     user = getUserByToken()   # from your token decorator
-    name = user.get('NAME','Dear User')
+    name = user['NAME'] if user else 'Dear User'
 
     # fetch items and calculate total
     cart_items = getUserCartItems(user['USERID'])
-    total_amount = sum(item.get('TOTAL_PRICE', 0) for item in cart_items)
+    total_amount = sum(item['TOTAL_PRICE'] for item in cart_items)
 
     return render_template(
         "user/checkout.html",
@@ -790,51 +786,84 @@ def create_razorpay_order():
 @app.route("/verify-payment", methods=["POST"])
 @token_required(role='user')
 def verify_payment():
+
     data = request.get_json()
 
     try:
-        # 1️⃣ Verify Razorpay signature (MOST IMPORTANT)
+        # ✅ 1. Verify Razorpay signature
         razorpay_client.utility.verify_payment_signature({
             "razorpay_order_id": data["razorpay_order_id"],
             "razorpay_payment_id": data["razorpay_payment_id"],
             "razorpay_signature": data["razorpay_signature"]
         })
 
-        # 2️⃣ Payment verified → place order
+        # ✅ 2. Get user
         user = getUserByToken()
         user_id = user["USERID"]
 
-        address = data["address"]
+        # ✅ 3. Get address data from frontend
+        address_data = data.get("address", {})
 
-        fullname = address["fullname"]
-        phone = address["phone"]
-        address_text = address["address"]
-        city = address["city"]
-        pincode = address["pincode"]
+        full_name = address_data.get("fullname")
+        phone = address_data.get("phone")
+        address = address_data.get("address")
+        city = address_data.get("city")
+        pincode = address_data.get("pincode")
 
-        # Get cart items
+        # ✅ 4. Get cart items
         cart_items = getUserCartItems(user_id)
         total_amount = sum(item["TOTAL_PRICE"] for item in cart_items)
 
-        # 3️⃣ Call your existing placeOrder() function
-        status, msg = placeOrder(
-            userid=user_id,
-            fullname=fullname,
-            phone=phone,
-            address=address_text,
-            city=city,
-            pincode=pincode,
-            total_amount=total_amount,
-            cart_items=cart_items,
-            payment_method="CARD",
-            payment_status="SUCCESS"
-        )
+        # ✅ 5. DB connection
+        db = databaseConfig()
+        cursor = db.cursor()
 
-        if not status:
-            return jsonify({
-                "status": "failed",
-                "message": msg
-            }), 400
+        # Generate order id
+        cursor.execute("SELECT COALESCE(MAX(ORDER_ID), 0) + 1 FROM ORDERS")
+        order_id = cursor.fetchone()[0]
+
+        # ✅ 6. Insert each item
+        for item in cart_items:
+
+            cursor.execute("""
+                INSERT INTO ORDERS (
+                    ORDER_ID, USER_ID, PRODUCT_ID,
+                    PRODUCT_NAME, PRODUCT_PRICE,
+                    QUANTITY, TOTAL_PRICE,
+                    CUSTOMER_NAME, PHONE, ADDRESS, CITY, PINCODE,
+                    PAYMENT_METHOD, PAYMENT_STATUS
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                order_id,
+                user_id,
+                item["PRODUCTID"],
+                item["NAME"],
+                item["PRICE"],
+                item["QUANTITY"],
+                item["TOTAL_PRICE"],
+                full_name,
+                phone,
+                address,
+                city,
+                pincode,
+                "ONLINE",
+                "SUCCESS"
+            ))
+
+            # ✅ reduce stock
+            cursor.execute("""
+                UPDATE PRODUCTS
+                SET STOCK = STOCK - ?
+                WHERE PRODUCTID = ?
+            """, (item["QUANTITY"], item["PRODUCTID"]))
+
+        # ✅ 7. Clear cart
+        cursor.execute("DELETE FROM CART WHERE USERID = ?", (user_id,))
+
+        db.commit()
+        cursor.close()
+        db.close()
 
         return jsonify({
             "status": "success",
@@ -842,7 +871,7 @@ def verify_payment():
         })
 
     except Exception as e:
-        print("RAZORPAY VERIFY ERROR:", e)
+        print("VERIFY ERROR:", e)
         return jsonify({
             "status": "failed",
             "message": "Payment verification failed"
@@ -885,12 +914,11 @@ def place_cod_order():
 def my_orders():
     # token_required has already validated the JWT and populated request.userid
     user = getUserByToken()
-    name = user.get('NAME', 'User')
+    name = user['NAME'] if user else 'Dear User'
     if not user:
         # worst-case fallback, though token_required should have prevented this
         return redirect(url_for('login'))
 
-    name = user.get('name', user.get('NAME', 'Dear User'))
     orders = myOrders(userid=user['USERID'])
 
     return render_template("user/user_orders.html", orders=orders,username=name, user_logged_in=True)
@@ -901,7 +929,7 @@ def my_orders():
 def view_cart():
     user_data = getDataFromToken()
     user = getUserByToken()
-    name = user.get('NAME', 'User')
+    name = user['NAME'] if user else 'Dear User'
     
     user_id = user_data['userid']  # adjust if needed
 
@@ -956,22 +984,23 @@ def remove_from_cart():
 def user_profile():
 
     user = getUserByToken()
-    name = user.get('NAME', 'User')
-    user = getUserByToken()
 
     if not user:
         return redirect(url_for('login'))
 
+    name = user['NAME']
+
     first_name = ""
     last_name = ""
-    if user.get('NAME'):
+
+    if user['NAME']:
         parts = user['NAME'].split(" ", 1)
         first_name = parts[0]
         last_name = parts[1] if len(parts) > 1 else ""
 
     profile_image = (
         user['PROFILE_IMAGE']
-        if user.get('PROFILE_IMAGE')
+        if user and user['PROFILE_IMAGE']
         else 'images/default_user.png'
     )
 

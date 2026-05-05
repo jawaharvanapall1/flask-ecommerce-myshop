@@ -79,7 +79,7 @@
                 <td>{{ order.ORDER_ID }}</td>
                 <td>{{ order.PRODUCT_NAME }}</td>
                 <td>{{ order.USER_ID }}</td>
-                <td>{{ order.CREATED_AT.strftime('%Y-%m-%d') if order.CREATED_AT }}</td>
+                <td>{{ order.CREATED_AT[:10] if order.CREATED_AT }}</td>
                 <td>₹ {{ order.TOTAL_PRICE }}</td>
 
                 <td>
