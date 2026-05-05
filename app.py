@@ -735,7 +735,7 @@ def checkout():
 @token_required(role='user')
 def buy_now():
     user = getUserByToken()
-    name = user.get('NAME', 'User')
+    name = user['NAME'] if user else 'Dear User'   
     user = getUserByToken()
     user_id = user['USERID']
 

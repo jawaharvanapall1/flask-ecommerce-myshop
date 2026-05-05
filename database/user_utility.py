@@ -69,7 +69,7 @@ def myOrders(userid):
             o.PRODUCT_PRICE,
             o.QUANTITY,
             o.TOTAL_PRICE,
-            p.IMAGE_URL,   -- ✅ get from PRODUCTS
+            p.IMAGE_URL,   
             o.ORDER_STATUS,
             o.PAYMENT_STATUS,
             o.CREATED_AT
